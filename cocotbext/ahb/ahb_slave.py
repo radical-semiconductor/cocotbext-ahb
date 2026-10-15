@@ -84,18 +84,18 @@ class AHBLiteSlave:
         self.bus.hrdata.value = 0
 
         while True:
-            if self.rst.value.is_resolvable:
-                if self.rst_act_low:
-                    if self.rst.value == 0:  # Active 0
-                        self.log.warning("Slave AHB reset issued")
-                        self._init_bus()
-                else:
-                    if self.rst.value == 1:  # Active 1
-                        self.log.warning("Slave AHB reset issued")
-                        self._init_bus()
-
             # Wait for a txn
             await RisingEdge(self.clk)
+
+            if self.rst.value.is_resolvable and self.rst.value == (
+                0 if self.rst_act_low else 1
+            ):
+                wr_start = False
+                rd_start = False
+                error = False
+                self.log.warning("Slave AHB reset issued")
+                self._init_bus()
+                continue
 
             if self.bus.hready_in_exist:
                 cur_hready_in = copy.deepcopy(self.bus.hready_in.value)
