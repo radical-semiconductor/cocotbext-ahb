@@ -5,7 +5,7 @@ import os
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import (
-    ClockCycles, FallingEdge, RisingEdge, Timer, with_timeout,
+    ClockCycles, FallingEdge, ReadOnly, RisingEdge, Timer, with_timeout,
 )
 from cocotb_tools.check_results import get_results
 from cocotb_tools.runner import get_runner
@@ -76,6 +76,32 @@ async def reset_cancels_master(dut, reset_active_low, write, pipelined):
     assert [item["resp"] for item in response] == [AHBResp.OKAY]
     assert slave.writes == [(0x40, 0xAABBCCDD)]
     response = await master.read(0x44, sync=True)
+    assert int(response[0]["data"], 16) == 0xA5000044
+    assert response[0]["resp"] == AHBResp.OKAY
+    clock.cancel()
+
+
+@cocotb.test(timeout_time=3000, timeout_unit="ns")
+@cocotb.parametrize(sync=[False, True])
+async def call_from_read_only(dut, sync):
+    dut.hresetn.value = 0
+    bus = AHBBus.from_entity(dut)
+    slave = RecordingSlave(bus, dut.hclk, dut.hresetn)
+    slave.stall = False
+    master = AHBLiteMaster(bus, dut.hclk, dut.hresetn)
+    clock = cocotb.start_soon(
+        Clock(dut.hclk, 10, unit="ns").start(start_high=False)
+    )
+    await ClockCycles(dut.hclk, 3)
+    await FallingEdge(dut.hclk)
+    dut.hresetn.value = 1
+    await ClockCycles(dut.hclk, 2)
+    await ReadOnly()
+    response = await master.write(0x40, 0xAABBCCDD, sync=sync)
+    assert [item["resp"] for item in response] == [AHBResp.OKAY]
+    assert slave.writes == [(0x40, 0xAABBCCDD)]
+    await ReadOnly()
+    response = await master.read(0x44, sync=sync)
     assert int(response[0]["data"], 16) == 0xA5000044
     assert response[0]["resp"] == AHBResp.OKAY
     clock.cancel()

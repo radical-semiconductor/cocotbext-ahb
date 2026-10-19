@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel", "cocotb>=1.8.0", "cocotb-bus>=0.2.1"]
+requires = ["setuptools", "wheel", "cocotb>=2.0.0", "cocotb-bus>=0.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
 dependencies = [
-    "cocotb>=1.8.0",
+    "cocotb>=2.0.0",
     "cocotb-bus",
     "packaging",
 ]

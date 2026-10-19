@@ -19,7 +19,10 @@ __version__ = version("cocotbext-ahb")
 if Version(cocotb.__version__) >= Version("2.0.0"):
     from cocotb.handle import Immediate
 
-from cocotb.triggers import FallingEdge, First, ReadWrite, RisingEdge
+from cocotb.triggers import (
+    FallingEdge, First, NextTimeStep, ReadOnly, ReadWrite, RisingEdge,
+    current_gpi_trigger,
+)
 from cocotb.types import LogicArray
 
 from .ahb_bus import AHBBus
@@ -203,7 +206,9 @@ class AHBLiteMaster:
         sync: bool = False,
     ) -> Sequence[dict]:
         """Drives the AHB transaction into the bus."""
-        # Check reset in a writable phase before driving the request.
+        # ReadOnly has ended this time step; wait for the next scheduled event.
+        if isinstance(current_gpi_trigger(), ReadOnly):
+            await NextTimeStep()
         await ReadWrite()
         self._check_reset()
         response = []
