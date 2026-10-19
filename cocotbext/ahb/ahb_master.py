@@ -8,13 +8,12 @@
 import copy
 import datetime
 import logging
-from importlib.metadata import version
 from typing import Optional, Sequence, Union
 
 import cocotb
 from packaging.version import Version
 
-__version__ = version("cocotbext-ahb")
+from ._version import __version__
 
 if Version(cocotb.__version__) >= Version("2.0.0"):
     from cocotb.handle import Immediate

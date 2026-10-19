@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools", "wheel", "cocotb>=2.0.0", "cocotb-bus>=0.2.1"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cocotbext-ahb"
-version = "0.5.1"
+dynamic = ["version"]
 description = "CocotbExt AHB Bus VIP"
 readme = "README.md"
 requires-python = ">=3.6"
@@ -25,13 +25,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
 dependencies = [
-    "cocotb>=2.0.0",
-    "cocotb-bus",
+    "cocotb>=2.0.1",
+    "cocotb-bus>=0.3.0",
     "packaging",
 ]
 
 [project.optional-dependencies]
-test = ["cocotb>=2.0.0"]
+test = ["cocotb>=2.0.1"]
 
 [project.urls]
 Homepage = "https://github.com/aignacio/cocotbext-ahb"
@@ -40,3 +40,6 @@ Homepage = "https://github.com/aignacio/cocotbext-ahb"
 
 [tool.setuptools.packages.find]
 include = ["cocotbext.*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "cocotbext.ahb._version.__version__"}
