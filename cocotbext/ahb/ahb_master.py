@@ -8,18 +8,20 @@
 import copy
 import datetime
 import logging
-from importlib.metadata import version
 from typing import Optional, Sequence, Union
 
 import cocotb
 from packaging.version import Version
 
-__version__ = version("cocotbext-ahb")
+from ._version import __version__
 
 if Version(cocotb.__version__) >= Version("2.0.0"):
     from cocotb.handle import Immediate
 
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import (
+    FallingEdge, First, NextTimeStep, ReadOnly, ReadWrite, RisingEdge,
+    current_gpi_trigger,
+)
 from cocotb.types import LogicArray
 
 from .ahb_bus import AHBBus
@@ -35,11 +37,13 @@ class AHBLiteMaster:
         timeout: int = 100,
         def_val: Union[int, str] = 0,  # Can be set to "Z",
         name: str = "ahb_lite",
+        reset_act_low: bool = True,
         **kwargs,
     ):
         self.bus = bus
         self.clk = clock
         self.rst = reset
+        self.rst_act_low = reset_act_low
         self.timeout = timeout
         self.def_val = def_val
         self.log = logging.getLogger(f"cocotb.{name}.{bus._name}.{bus._entity._name}")
@@ -73,6 +77,24 @@ class AHBLiteMaster:
                     sig.value = self._get_def(len(sig))
                 except AttributeError:
                     pass
+
+    def _check_reset(self) -> None:
+        """Cancel the call instead of returning a reset-time bus response."""
+        if self.rst.value.is_resolvable and self.rst.value == (
+            0 if self.rst_act_low else 1
+        ):
+            self._reset_bus()
+            self.bus.htrans.value = AHBTrans.IDLE
+            raise ConnectionAbortedError("Reset canceled the AHB transfer")
+
+    async def _wait_clock(self) -> None:
+        """Wait for a clock edge or cancel when reset asserts."""
+        self._check_reset()
+        reset_edge = (
+            FallingEdge(self.rst) if self.rst_act_low else RisingEdge(self.rst)
+        )
+        await First(RisingEdge(self.clk), reset_edge)
+        self._check_reset()
 
     def _get_def(self, width: int = 1) -> LogicArray:
         """Return a handle obj with the default value"""
@@ -183,6 +205,11 @@ class AHBLiteMaster:
         sync: bool = False,
     ) -> Sequence[dict]:
         """Drives the AHB transaction into the bus."""
+        # ReadOnly has ended this time step; wait for the next scheduled event.
+        if isinstance(current_gpi_trigger(), ReadOnly):
+            await NextTimeStep()
+        await ReadWrite()
+        self._check_reset()
         response = []
         first_txn = True
 
@@ -192,7 +219,7 @@ class AHBLiteMaster:
         # If sync, wait for one clock cycle before it starts
         # useful when leaving out of reset
         if sync:
-            await RisingEdge(self.clk)
+            await self._wait_clock()
 
         if pip is not True:
             # If pip is True, create a list with "BUBBLE" between each number
@@ -232,7 +259,7 @@ class AHBLiteMaster:
             if self.bus.hready_in_exist:
                 self.bus.hready_in.value = 1
 
-            await RisingEdge(self.clk)
+            await self._wait_clock()
 
             # First check if the slave signals are resolvable
             timeout_counter = 0
@@ -253,7 +280,7 @@ class AHBLiteMaster:
                         f"hrdata: {self.bus.hrdata.value.is_resolvable}\n"
                         f"hresp: {self.bus.hresp.value.is_resolvable}\n"
                     )
-                await RisingEdge(self.clk)
+                await self._wait_clock()
 
             index += 1
 
@@ -273,7 +300,7 @@ class AHBLiteMaster:
                         f"Timeout value of {timeout_counter}"
                         f" clock cycles has been reached!"
                     )
-                await RisingEdge(self.clk)
+                await self._wait_clock()
 
             if first_txn:
                 first_txn = False

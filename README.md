@@ -191,11 +191,18 @@ class AHBLiteMaster:
         timeout: int = 100,
         def_val: Union[int, str] = "Z",
         name: str = "ahb_lite",
+        reset_act_low: bool = True,
         **kwargs,
     ):
 ```
 
 In case of AHB Slave error response, the master will cancel the current transaction changing HTRANS from NSEQ to IDLE in the second clock cycle of the error response and then it will retry immediately after (following clock cycle). This is not mandatory but gives time for the master to decide whether it needs to be aborted or not the following transaction.
+
+Reset defaults to active-low; set `reset_act_low=False` for active-high reset.
+An asserted reset cancels an outstanding call, idles the master outputs and raises
+`ConnectionAbortedError`. Completed beats before reset may already have taken
+effect; cancellation does not roll them back. A new call is permitted after
+reset release.
 
 Its methods are composed by **read()**, **write()** and **custom()**. 
 
